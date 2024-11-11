@@ -10,7 +10,7 @@ url: str = st.secrets["supabase_url"]
 key: str = st.secrets["supabase_key"]
 supabase: Client = create_client(url, key)
 
-response = supabase.table("dht11").select("*").execute()
+response = supabase.table("dht11").select("*").eq("location", "bedroom").execute()
 df = pd.DataFrame(response.data)
 df["created_at"] = pd.to_datetime(df["created_at"])
 st.write("Number of Measurements: ", len(df))
