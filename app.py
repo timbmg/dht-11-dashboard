@@ -84,8 +84,6 @@ tooltips = (
     .encode(
         opacity=alt.condition(hover, alt.value(0.1), alt.value(0)),
         tooltip=[
-            # alt.Tooltip("created_at:T", title="Time"), 
-            # show the full timestamp in the tooltip
             alt.Tooltip("created_at:T", title="Time", format="%Y-%m-%d %H:%M"),
             alt.Tooltip("temperature:Q", title="Temperature (°C)"),
             alt.Tooltip("humidity:Q", title="Humidity (%)"),
