@@ -1,21 +1,26 @@
-from supabase import Client, create_client
 import pandas as pd
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import streamlit as st
+from st_supabase_connection import SupabaseConnection, execute_query
 
 
-url: str = st.secrets["supabase_url"]
-key: str = st.secrets["supabase_key"]
-supabase: Client = create_client(url, key)
+st_supabase_client = st.connection(
+    name="supabase",
+    type=SupabaseConnection,
+    ttl=None,
+)
 
-response = supabase.table("dht11").select("*").eq("location", "bedroom").execute()
-df = pd.DataFrame(response.data)
+rows = execute_query(
+    st_supabase_client.table("dht11").select("*").eq("location", "bedroom"),
+    ttl="10m",
+)
+
+df = pd.DataFrame(rows.data)
 df["created_at"] = pd.to_datetime(df["created_at"])
-st.write("Number of Measurements: ", len(df))
-# print(f"Number of Measurements: {len(df)}")
-# print(df.head(2))
+st.write(f"Number of Measurements: {len(df)}")
+st.write(f"Latest Measurements (UTC): {df['created_at'].max()}")
 
 fig, ax1 = plt.subplots(figsize=(6 * 1.3, 6))
 
