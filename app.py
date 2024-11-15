@@ -24,7 +24,7 @@ rows = execute_query(
 df = pd.DataFrame(rows.data)
 df["created_at"] = pd.to_datetime(df["created_at"])
 st.write(f"Number of Measurements: {len(df)}")
-st.write(f"Latest Measurements (UTC): {df['created_at'].max()}")
+st.write(f"Latest Measurements (UTC): {df['created_at'].max().strftime('%Y-%m-%d %H:%M')}")
 
 base = alt.Chart(df).encode(x=alt.X("created_at:T", title="Time"))
 
