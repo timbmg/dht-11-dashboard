@@ -10,8 +10,13 @@ st_supabase_client = st.connection(
     ttl=None,
 )
 
+# get the latets 1440 measurements, which is 24 hours of data
 rows = execute_query(
-    st_supabase_client.table("dht11").select("*").eq("location", "bedroom"),
+    st_supabase_client.table("dht11")
+    .select("*")
+    .eq("location", "bedroom")
+    .order("created_at", ascending=False)
+    .limit(1440),
     ttl="10m",
 )
 
