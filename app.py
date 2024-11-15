@@ -17,7 +17,7 @@ rows = execute_query(
     .eq("location", "bedroom")
     .order("created_at", desc=True)
     .limit(1440),
-    ttl="10m",
+    ttl="1m",
 )
 
 # Data Processing
