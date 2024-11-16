@@ -53,7 +53,7 @@ for tab, date_range in zip(tabs, date_ranges):
         metric_cols = st.columns(2)
         mean_temp = df["temperature"].mean()
         delta_temp = latest_temperature - mean_temp
-        delta_color = "normal" if delta_temp > 0 else "inverse"
+        delta_color = "off"
         delta_temp = round(delta_temp, 1)
         metric_cols[0].metric(
             "Temperature (°C)",
@@ -65,7 +65,7 @@ for tab, date_range in zip(tabs, date_ranges):
 
         mean_humidity = df["humidity"].mean()
         delta_humidity = latest_humidity - mean_humidity
-        delta_color = "normal" if delta_humidity > 0 else "inverse"
+        delta_color = "inverse"
         delta_humidity = round(delta_humidity, 1)
         metric_cols[1].metric(
             "Humidity (%)", latest_humidity, delta_humidity, delta_color,
