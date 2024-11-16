@@ -42,7 +42,7 @@ for tab, date_range in zip(tabs, date_ranges):
             data = fetch_data(from_date, to_date)
         elif date_range == "6h":
             to_date = pd.Timestamp.utcnow()
-            from_date = to_date - pd.Timedelta(hours=1, minutes=1)
+            from_date = to_date - pd.Timedelta(hours=6, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "24h":
             to_date = pd.Timestamp.utcnow()
