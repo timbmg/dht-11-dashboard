@@ -45,9 +45,6 @@ with st.expander("Settings", expanded=False):
     auto_refresh = st.checkbox(
         "Auto Refresh", value=False, help=f"Refresh every {refresh_interval} seconds."
     )
-    if auto_refresh:
-        # refresh every 60 seconds
-        st_autorefresh(interval=refresh_interval * 1000)
 
     # toggle for notifications
     notifications_toggle = st.checkbox(
@@ -290,10 +287,9 @@ for tab, date_range in zip(tabs, date_ranges):
 
             num_measurements = len(df)
             st.subheader("Statistics", divider=True)
-            st.write(f"Total Number of Measurements: {len(df)}")
-            st.write(
-                f"Latest Measurements (UTC): {df['created_at'].max().strftime('%Y-%m-%d %H:%M')}"
-            )
+            general_cols = st.columns(3)
+            general_cols[0].metric("Measurements", num_measurements)
+            general_cols[1].metric("Latest Measurements (UTC)", df["created_at"].max().strftime("%H:%M %d/%m"))
 
             temp_cols = st.columns(3)
             temp_cols[0].metric(
@@ -305,3 +301,7 @@ for tab, date_range in zip(tabs, date_ranges):
             humi_cols[0].metric("Average Humidity (%)", f"{df['humidity'].mean():.1f} %")
             humi_cols[1].metric("Maximum Humidity (%)", f"{df['humidity'].max()} %")
             humi_cols[2].metric("Minimum Humidity (%)", f"{df['humidity'].min()} %")
+
+if auto_refresh:
+    # refresh every 60 seconds
+    st_autorefresh(interval=refresh_interval * 1000, key="autorefresh")
