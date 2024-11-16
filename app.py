@@ -18,6 +18,11 @@ st_supabase_client = st.connection(
 )
 
 sound_path = "https://cdn.pixabay.com/audio/2022/12/12/audio_e6f0105ae1.mp3"
+refresh_interval = 30
+min_temp_threshold = 15
+max_temp_threshold = 25
+min_humid_threshold = 0
+max_humid_threshold = 65
 
 
 def fetch_data(from_date, to_date):
@@ -37,7 +42,6 @@ st.title("🌡️ Temperature & Humidity")
 
 with st.expander("Settings", expanded=False):
     # toggle for auto refresh
-    refresh_interval = 30
     auto_refresh = st.checkbox(
         "Auto Refresh", value=False, help=f"Refresh every {refresh_interval} seconds."
     )
@@ -58,13 +62,13 @@ with st.expander("Settings", expanded=False):
             help="Play a sound when a notification is received.",
         )
         temp_slider = st.slider(
-            "Temperature Threshold", min_value=10, max_value=30, value=(15, 25)
+            "Temperature Threshold", min_value=0, max_value=40, value=(min_temp_threshold, max_temp_threshold)
         )
         humid_slider = st.slider(
             "Humidity Threshold",
             min_value=0,
             max_value=100,
-            value=(0, 65),
+            value=(min_humid_threshold, max_humid_threshold),
         )
 
 
