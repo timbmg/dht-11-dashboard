@@ -2,6 +2,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection, execute_query
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(
     page_title="HW7 T&H",
@@ -15,6 +16,7 @@ st_supabase_client = st.connection(
     ttl=None,
 )
 
+
 def fetch_data(from_date, to_date):
 
     return execute_query(
@@ -27,7 +29,19 @@ def fetch_data(from_date, to_date):
         ttl="1m",
     ).data
 
+
 st.title("🌡️ Temperature & Humidity")
+
+with st.expander("Settings", expanded=False):
+    # toggle for auto refresh
+    refresh_interval = 30
+    auto_refresh = st.checkbox(
+        "Auto Refresh", value=False, help=f"Refresh every {refresh_interval} seconds."
+    )
+    if auto_refresh:
+        # refresh every 60 seconds
+        st_autorefresh(interval=refresh_interval * 1000)
+
 
 date_ranges = ["1h", "6h", "24h", "7d", "30d", "Max", "Custom"]
 tabs = st.tabs(date_ranges)
@@ -62,10 +76,16 @@ for tab, date_range in zip(tabs, date_ranges):
             data = fetch_data(from_date, to_date)
         elif date_range == "Custom":
             date_from, hour_from = st.columns(2)
-            date_to, hour_to  = st.columns(2)
-            date_from = date_from.date_input("From Date", pd.Timestamp.utcnow() - pd.Timedelta(days=1), format="DD/MM/YYYY")
+            date_to, hour_to = st.columns(2)
+            date_from = date_from.date_input(
+                "From Date",
+                pd.Timestamp.utcnow() - pd.Timedelta(days=1),
+                format="DD/MM/YYYY",
+            )
             hour_from = hour_from.time_input("From Time", pd.Timestamp.utcnow())
-            date_to = date_to.date_input("To Date", pd.Timestamp.utcnow(), format="DD/MM/YYYY")
+            date_to = date_to.date_input(
+                "To Date", pd.Timestamp.utcnow(), format="DD/MM/YYYY"
+            )
             hour_to = hour_to.time_input("To Time", pd.Timestamp.utcnow())
 
             from_date = pd.Timestamp(f"{date_from} {hour_from}")
@@ -73,7 +93,12 @@ for tab, date_range in zip(tabs, date_ranges):
 
             enabled = from_date < to_date
 
-            st.button(":material/refresh:", key="load_data", type="secondary", disabled=not enabled)
+            st.button(
+                ":material/refresh:",
+                key="load_data",
+                type="secondary",
+                disabled=not enabled,
+            )
             if st.session_state.get("load_data"):
                 data = fetch_data(from_date, to_date)
         else:
@@ -105,7 +130,10 @@ for tab, date_range in zip(tabs, date_ranges):
             delta_color = "inverse"
             delta_humidity = round(delta_humidity, 1)
             metric_cols[1].metric(
-                "Humidity", f"{latest_humidity} %", delta_humidity, delta_color,
+                "Humidity",
+                f"{latest_humidity} %",
+                delta_humidity,
+                delta_color,
                 help=f"Humidity compared to the average humidity in the last {date_range}.",
             )
 
@@ -122,7 +150,9 @@ for tab, date_range in zip(tabs, date_ranges):
             # Create a line for temperature
             min_temp_scale = df["temperature"].min() - 2
             max_temp_scale = df["temperature"].max() + 2
-            temperature_line = base.mark_line(color="red", interpolate="monotone").encode(
+            temperature_line = base.mark_line(
+                color="red", interpolate="monotone"
+            ).encode(
                 y=alt.Y(
                     "temperature:Q",
                     title="Temperature (°C)",
@@ -142,7 +172,6 @@ for tab, date_range in zip(tabs, date_ranges):
                     scale=alt.Scale(domain=[min_humidity_scale, max_humidity_scale]),
                 ),
             )
-
 
             # hover_line = (
             #     base.mark_rule(color="gray", strokeDash=[5, 5])
@@ -172,7 +201,9 @@ for tab, date_range in zip(tabs, date_ranges):
                 .encode(
                     opacity=alt.condition(hover, alt.value(0.1), alt.value(0)),
                     tooltip=[
-                        alt.Tooltip("created_at:T", title="Time", format="%Y-%m-%d %H:%M"),
+                        alt.Tooltip(
+                            "created_at:T", title="Time", format="%Y-%m-%d %H:%M"
+                        ),
                         alt.Tooltip("temperature:Q", title="Temperature (°C)"),
                         alt.Tooltip("humidity:Q", title="Humidity (%)"),
                     ],
