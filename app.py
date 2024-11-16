@@ -181,7 +181,7 @@ for tab, date_range in zip(tabs, date_ranges):
             metric_cols[0].metric(
                 "Temperature",
                 f"{latest_temperature} °C",
-                delta_temp,
+                f"{delta_temp} °C",
                 delta_color,
                 help=f"Temperature in Celsius compared to the average temperature in the last {date_range}.",
             )
@@ -193,7 +193,7 @@ for tab, date_range in zip(tabs, date_ranges):
             metric_cols[1].metric(
                 "Humidity",
                 f"{latest_humidity} %",
-                delta_humidity,
+                f"{delta_humidity} %",
                 delta_color,
                 help=f"Humidity compared to the average humidity in the last {date_range}.",
             )
@@ -297,11 +297,11 @@ for tab, date_range in zip(tabs, date_ranges):
 
             temp_cols = st.columns(3)
             temp_cols[0].metric(
-                "Average Temperature (°C)", f"{df['temperature'].mean():.1f}"
+                "Average Temperature", f"{df['temperature'].mean():.1f}°C"
             )
-            temp_cols[1].metric("Maximum Temperature (°C)", df["temperature"].max())
-            temp_cols[2].metric("Minimum Temperature (°C)", df["temperature"].min())
+            temp_cols[1].metric("Maximum Temperature", f"{df['temperature'].max()} °C")
+            temp_cols[2].metric("Minimum Temperature", f"{df['temperature'].min()} °C")
             humi_cols = st.columns(3)
-            humi_cols[0].metric("Average Humidity (%)", f"{df['humidity'].mean():.1f}")
-            humi_cols[1].metric("Maximum Humidity (%)", df["humidity"].max())
-            humi_cols[2].metric("Minimum Humidity (%)", df["humidity"].min())
+            humi_cols[0].metric("Average Humidity (%)", f"{df['humidity'].mean():.1f} %")
+            humi_cols[1].metric("Maximum Humidity (%)", f"{df['humidity'].max()} %")
+            humi_cols[2].metric("Minimum Humidity (%)", f"{df['humidity'].min()} %")
