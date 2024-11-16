@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection, execute_query
 from streamlit_autorefresh import st_autorefresh
+from streamlit_push_notifications import send_alert, send_push
 
 st.set_page_config(
     page_title="HW7 T&H",
@@ -41,6 +42,28 @@ with st.expander("Settings", expanded=False):
     if auto_refresh:
         # refresh every 60 seconds
         st_autorefresh(interval=refresh_interval * 1000)
+
+    # toggle for notifications
+    notifications_toggle = st.checkbox(
+        "Notifications",
+        value=False,
+        help="Receive notifications when the temperature or humidity exceeds the threshold.",
+    )
+    if notifications_toggle:
+        enable_sound = st.checkbox(
+            "Enable Sound",
+            value=False,
+            help="Play a sound when a notification is received.",
+        )
+        temp_slider = st.slider(
+            "Temperature Threshold", min_value=10, max_value=30, value=(15, 25)
+        )
+        humid_slider = st.slider(
+            "Humidity Threshold",
+            min_value=0,
+            max_value=100,
+            value=(0, 65),
+        )
 
 
 date_ranges = ["1h", "6h", "24h", "7d", "30d", "Max", "Custom"]
@@ -111,6 +134,41 @@ for tab, date_range in zip(tabs, date_ranges):
 
             latest_temperature = df["temperature"].iloc[0]
             latest_humidity = df["humidity"].iloc[0]
+
+            if notifications_toggle:
+                temp_too_low = latest_temperature < temp_slider[0]
+                temp_too_high = latest_temperature > temp_slider[1]
+                if (
+                    temp_too_low or temp_too_high
+                ) and not st.session_state.temp_alert_send:
+                    send_push(
+                        title=f"{'Low' if temp_too_low else 'High'} Temperature Alert",
+                        body=f"⚠️ Current Temperature is {latest_temperature} °C",
+                        sound_path=(
+                            "https://cdn.pixabay.com/audio/2022/12/12/audio_e6f0105ae1.mp3"
+                            if enable_sound
+                            else None
+                        ),
+                    )
+                    st.session_state.temp_alert_send = True
+                else:
+                    st.session_state.temp_alert_send = False
+
+                humi_too_low = latest_humidity < humid_slider[0]
+                humi_too_high = latest_humidity > humid_slider[1]
+                if (
+                    humi_too_low or humi_too_high
+                ) and not st.session_state.humid_alert_send:
+                    # send_alert(
+                    #     message=f"⚠️ Humidity is {latest_humidity} %",
+                    # )
+                    send_push(
+                        title=f"{'Low' if temp_too_low else 'High'} Humidity Alert",
+                        body=f"⚠️ Humidity is {latest_humidity} %",
+                    )
+                    st.session_state.humid_alert_send = True
+                else:
+                    st.session_state.humid_alert_send = False
 
             metric_cols = st.columns(2)
             mean_temp = df["temperature"].mean()
