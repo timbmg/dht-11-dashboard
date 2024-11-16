@@ -17,6 +17,8 @@ st_supabase_client = st.connection(
     ttl=None,
 )
 
+sound_path = "https://cdn.pixabay.com/audio/2022/12/12/audio_e6f0105ae1.mp3"
+
 
 def fetch_data(from_date, to_date):
 
@@ -144,11 +146,7 @@ for tab, date_range in zip(tabs, date_ranges):
                     send_push(
                         title=f"{'Low' if temp_too_low else 'High'} Temperature Alert",
                         body=f"⚠️ Current Temperature is {latest_temperature} °C",
-                        sound_path=(
-                            "https://cdn.pixabay.com/audio/2022/12/12/audio_e6f0105ae1.mp3"
-                            if enable_sound
-                            else None
-                        ),
+                        sound_path=(sound_path if enable_sound else None),
                     )
                     st.session_state.temp_alert_send = True
                 else:
@@ -165,6 +163,7 @@ for tab, date_range in zip(tabs, date_ranges):
                     send_push(
                         title=f"{'Low' if temp_too_low else 'High'} Humidity Alert",
                         body=f"⚠️ Humidity is {latest_humidity} %",
+                        sound_path=(sound_path if enable_sound else None),
                     )
                     st.session_state.humid_alert_send = True
                 else:
