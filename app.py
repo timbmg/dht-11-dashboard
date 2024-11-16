@@ -50,7 +50,7 @@ for tab, date_range in zip(tabs, date_ranges):
         metric_cols[0].metric("Temperature (°C)", latest_temperature)
         metric_cols[1].metric("Humidity (%)", latest_humidity)
 
-        base = alt.Chart(df).encode(x=alt.X("created_at:T", title="Time"))
+        base = alt.Chart(df).encode(x=alt.X("created_at:T", title=""))
 
         hover = alt.selection_point(
             fields=["created_at"],
@@ -132,7 +132,7 @@ for tab, date_range in zip(tabs, date_ranges):
                 tooltips,
             )
             .resolve_scale(y="independent")
-            .properties(width=600, height=400, title="Temperature and Humidity over Time")
+            .properties(width=600, height=400, title="")
         )
 
         st.altair_chart(chart, use_container_width=True)
