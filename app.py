@@ -3,6 +3,12 @@ import pandas as pd
 import streamlit as st
 from st_supabase_connection import SupabaseConnection, execute_query
 
+st.set_page_config(
+    page_title="HW7 T&H",
+    page_icon="🏡",
+    layout="centered",
+)
+
 st.title("🏡 Temperature & Humidity")
 
 # Data Loading
