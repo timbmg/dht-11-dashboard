@@ -47,8 +47,26 @@ for tab, date_range in zip(tabs, date_ranges):
         latest_humidity = df["humidity"].iloc[0]
 
         metric_cols = st.columns(2)
-        metric_cols[0].metric("Temperature (°C)", latest_temperature)
-        metric_cols[1].metric("Humidity (%)", latest_humidity)
+        mean_temp = df["temperature"].mean()
+        delta_temp = latest_temperature - mean_temp
+        delta_color = "normal" if delta_temp > 0 else "inverse"
+        delta_temp = round(delta_temp, 1)
+        metric_cols[0].metric(
+            "Temperature (°C)",
+            latest_temperature,
+            delta_temp,
+            delta_color,
+            help=f"Temperature in Celsius compared to the average temperature in the last {date_range}.",
+        )
+
+        mean_humidity = df["humidity"].mean()
+        delta_humidity = latest_humidity - mean_humidity
+        delta_color = "normal" if delta_humidity > 0 else "inverse"
+        delta_humidity = round(delta_humidity, 1)
+        metric_cols[1].metric(
+            "Humidity (%)", latest_humidity, delta_humidity, delta_color,
+            help=f"Humidity compared to the average humidity in the last {date_range}.",
+        )
 
         base = alt.Chart(df).encode(x=alt.X("created_at:T", title=""))
 
