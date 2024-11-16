@@ -12,7 +12,7 @@ st_supabase_client = st.connection(
     ttl=None,
 )
 
-date_ranges = ["24h", "7d", "30d", "Max"]
+date_ranges = ["1h", "6h", "24h", "7d", "30d", "Max"]
 tabs = st.tabs(date_ranges)
 
 for tab, date_range in zip(tabs, date_ranges):
@@ -20,12 +20,16 @@ for tab, date_range in zip(tabs, date_ranges):
     with tab:
         # get the latest measurements based on the selected date range
         # by constraining the created_at column
-        if date_range == "24h":
-            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=1)
+        if date_range == "1h":
+            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(hours=1, minutes=1)
+        elif date_range == "6h":
+            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(hours=6, minutes=1)
+        elif date_range == "24h":
+            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=1, minutes=1)
         elif date_range == "7d":
-            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=7)
+            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=7, minutes=1)
         elif date_range == "30d":
-            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=30)
+            cut_off_date = pd.Timestamp.utcnow() - pd.Timedelta(days=30, minutes=1)
         elif date_range == "Max":
             cut_off_date = pd.Timestamp(0)
         else:
@@ -36,7 +40,7 @@ for tab, date_range in zip(tabs, date_ranges):
             .select("*")
             .eq("location", "bedroom")
             .order("created_at", desc=True)
-            .gt("created_at", cut_off_date),
+            .gte("created_at", cut_off_date),
             ttl="1m",
         )
 
