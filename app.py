@@ -137,6 +137,20 @@ for tab, date_range in zip(tabs, date_ranges):
 
         st.altair_chart(chart, use_container_width=True)
 
-        with st.expander("Show Data"):
+        num_measurements = len(df)
+        with st.expander("More Stats"):
             st.write(f"Total Number of Measurements: {len(df)}")
-            st.write(f"Latest Measurements (UTC): {df['created_at'].max().strftime('%Y-%m-%d %H:%M')}")
+            st.write(
+                f"Latest Measurements (UTC): {df['created_at'].max().strftime('%Y-%m-%d %H:%M')}"
+            )
+
+            temp_cols = st.columns(3)
+            temp_cols[0].metric(
+                "Average Temperature (°C)", f"{df['temperature'].mean():.1f}"
+            )
+            temp_cols[1].metric("Maximum Temperature (°C)", df["temperature"].max())
+            temp_cols[2].metric("Minimum Temperature (°C)", df["temperature"].min())
+            humi_cols = st.columns(3)
+            humi_cols[0].metric("Average Humidity (%)", f"{df['humidity'].mean():.1f}")
+            humi_cols[1].metric("Maximum Humidity (%)", df["humidity"].max())
+            humi_cols[2].metric("Minimum Humidity (%)", df["humidity"].min())
