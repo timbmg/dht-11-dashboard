@@ -1,6 +1,8 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
+import re
+import requests
 from st_supabase_connection import SupabaseConnection, execute_query
 from streamlit_autorefresh import st_autorefresh
 from streamlit_push_notifications import send_alert, send_push
@@ -17,12 +19,24 @@ st_supabase_client = st.connection(
     ttl=None,
 )
 
+# settings
+
+LAT = 49.879244743989915
+LON = 8.667196238775123
+
+default_enable_auto_refresh = False
+default_enable_notifications = False
+default_enable_notification_sound = False
+default_display_temp = True
+default_display_humidty = True
+default_display_sunrise_sunset = False
+default_min_temp_threshold = 15
+default_max_temp_threshold = 25
+default_min_humid_threshold = 0
+default_max_humid_threshold = 65
 sound_path = "https://cdn.pixabay.com/audio/2022/12/12/audio_e6f0105ae1.mp3"
-refresh_interval = 30
-min_temp_threshold = 15
-max_temp_threshold = 25
-min_humid_threshold = 0
-max_humid_threshold = 65
+refresh_interval = 60
+start_of_recording_date = "2024-11-12"
 
 
 def fetch_data(from_date, to_date):
@@ -38,35 +52,106 @@ def fetch_data(from_date, to_date):
     ).data
 
 
+@st.cache_data
+def get_sunrise_sunset_data(
+    date_start: str, date_end: str, timezone="UTC"
+) -> pd.DataFrame:
+    # assert date is in YYYY-MM-DD format
+    regex = re.compile(r"\d{4}-\d{2}-\d{2}")
+    assert regex.match(date_start) and regex.match(date_end), "Invalid date format."
+
+    url = f"""
+    https://api.sunrisesunset.io/json?
+    timezone={timezone}
+    &lat={LAT}
+    &lng={LON}
+    &date_start={date_start}
+    &date_end={date_end}
+    """
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        raw_results = response.json()["results"]
+        df = pd.DataFrame(raw_results)
+        # convert 12-hour time to 24-hour time
+        keys_to_convert = list(df.columns)
+        keys_to_keep = ["date", "timezone", "day_length", "utc_offset"]
+        keys_to_convert = [key for key in keys_to_convert if key not in keys_to_keep]
+        for key in keys_to_convert:
+            df[key] = pd.to_datetime(df[key], format="%I:%M:%S %p").dt.strftime(
+                "%H:%M:%S"
+            )
+
+        # merge time columns with date
+        for key in keys_to_convert:
+            df[key] = df["date"] + " " + df[key]
+
+        # round to nearest minute
+        for key in keys_to_convert:
+            df[key] = pd.to_datetime(df[key]).dt.round("1min")
+
+        # set timezone
+        for key in keys_to_convert:
+            df[key] = df[key].dt.tz_localize("UTC").dt.tz_convert(timezone)
+
+        return df
+
+    else:
+        raise ValueError("Failed to fetch sunrise/sunset data.")
+
+
 st.title("🌡️ Temperature & Humidity")
 
 with st.expander("Settings", expanded=False):
     # toggle for auto refresh
     auto_refresh = st.checkbox(
-        "Auto Refresh", value=False, help=f"Refresh every {refresh_interval} seconds."
+        "Auto Refresh",
+        value=default_enable_auto_refresh,
+        help=f"Refresh every {refresh_interval} seconds.",
     )
 
     # toggle for notifications
     notifications_toggle = st.checkbox(
         "Notifications",
-        value=False,
+        value=default_enable_notifications,
         help="Receive notifications when the temperature or humidity exceeds the threshold.",
     )
     if notifications_toggle:
         enable_sound = st.checkbox(
             "Enable Sound",
-            value=False,
+            value=default_enable_notification_sound,
             help="Play a sound when a notification is received.",
         )
         temp_slider = st.slider(
-            "Temperature Threshold", min_value=0, max_value=40, value=(min_temp_threshold, max_temp_threshold)
+            "Temperature Threshold",
+            min_value=0,
+            max_value=40,
+            value=(default_min_temp_threshold, default_max_temp_threshold),
         )
         humid_slider = st.slider(
             "Humidity Threshold",
             min_value=0,
             max_value=100,
-            value=(min_humid_threshold, max_humid_threshold),
+            value=(default_min_humid_threshold, default_max_humid_threshold),
         )
+
+    display_temperature = st.checkbox(
+        "Display Temperature",
+        value=default_display_temp,
+        help="Display temperature measurements.",
+    )
+
+    display_humidity = st.checkbox(
+        "Display Humidity",
+        value=default_display_humidty,
+        help="Display humidity measurements.",
+    )
+
+    display_sunrise_sunset = st.checkbox(
+        "Display Sunrise & Sunset",
+        value=default_display_sunrise_sunset,
+        help="Display vertical lines for sunrise and sunset times.",
+    )
 
 
 date_ranges = ["1h", "6h", "24h", "7d", "30d", "Max", "Custom"]
@@ -97,7 +182,7 @@ for tab, date_range in zip(tabs, date_ranges):
             from_date = to_date - pd.Timedelta(days=30, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "Max":
-            from_date = pd.Timestamp("2021-01-01")
+            from_date = pd.Timestamp(start_of_recording_date)
             to_date = pd.Timestamp.utcnow()
             data = fetch_data(from_date, to_date)
         elif date_range == "Custom":
@@ -135,15 +220,18 @@ for tab, date_range in zip(tabs, date_ranges):
             df = pd.DataFrame(data)
             df["created_at"] = pd.to_datetime(df["created_at"])
 
+            # resample data to 1 minute intervals and use the latest value
+            df = df.resample("1T", on="created_at").last().reset_index()
+
             latest_temperature = df["temperature"].iloc[0]
             latest_humidity = df["humidity"].iloc[0]
 
             if notifications_toggle:
                 temp_too_low = latest_temperature < temp_slider[0]
                 temp_too_high = latest_temperature > temp_slider[1]
-                if (
-                    temp_too_low or temp_too_high
-                ) and not st.session_state.get("temp_alert_send", False):
+                if (temp_too_low or temp_too_high) and not st.session_state.get(
+                    "temp_alert_send", False
+                ):
                     send_push(
                         title=f"{'Low' if temp_too_low else 'High'} Temperature Alert",
                         body=f"⚠️ Current Temperature is {latest_temperature} °C",
@@ -155,9 +243,9 @@ for tab, date_range in zip(tabs, date_ranges):
 
                 humi_too_low = latest_humidity < humid_slider[0]
                 humi_too_high = latest_humidity > humid_slider[1]
-                if (
-                    humi_too_low or humi_too_high
-                ) and not st.session_state.get("humid_alert_send", False):
+                if (humi_too_low or humi_too_high) and not st.session_state.get(
+                    "humid_alert_send", False
+                ):
                     # send_alert(
                     #     message=f"⚠️ Humidity is {latest_humidity} %",
                     # )
@@ -195,7 +283,56 @@ for tab, date_range in zip(tabs, date_ranges):
                 help=f"Humidity compared to the average humidity in the last {date_range}.",
             )
 
+            # get the earliest sunrise and latest sunset
+            df_sunrise_sunset = get_sunrise_sunset_data(
+                date_start=from_date.strftime("%Y-%m-%d"),
+                date_end=to_date.strftime("%Y-%m-%d"),
+            )
+
+            # find the closest measuremet in df to sunrise and sunset and set them to 1
+            # else set them to 0
+            df["sunrise_sunset"] = 0
+            for index, row in df_sunrise_sunset.iterrows():
+                sunrise = row["sunrise"]
+                sunset = row["sunset"]
+                df.loc[
+                    (df["created_at"] - sunrise).abs().idxmin(),
+                    ["sunrise_sunset", "sunrise_sunset_type"],
+                ] = [1, "Sunrise"]
+                df.loc[
+                    (df["created_at"] - sunset).abs().idxmin(),
+                    ["sunrise_sunset", "sunrise_sunset_type"],
+                ] = [1, "Sunset"]
+            # remove the first sunset, sunrise indicators from the measurement
+            # sunrise_sunset column as they are not accurate
+            df["sunrise_sunset"] = df["sunrise_sunset"].shift(-1)
+            df["sunrise_sunset_type"] = df["sunrise_sunset_type"].shift(-1)
+
             base = alt.Chart(df).encode(x=alt.X("created_at:T", title=""))
+
+            # show vertical lines for sunrise and sunset times, i.e. when sunrise and sunset are 1
+            sunrise_sunset = (
+                base.mark_rule(strokeDash=[5, 5])
+                .encode(
+                    x="created_at:T",
+                    color=alt.Color(
+                        "sunrise_sunset_type:N",
+                        scale=alt.Scale(range=["orange", "purple"]),
+                        legend=None,
+                    ),
+                    tooltip=[
+                        alt.Tooltip("sunrise_sunset_type:N", title="Event"),
+                        alt.Tooltip(
+                            "created_at:T", title="Time", format="%Y-%m-%d %H:%M"
+                        ),
+                    ],
+                )
+                .transform_filter("datum.sunrise_sunset == 1")
+            )
+            # make the vertical lines into arrows for sunrise and sunset times
+            sunrise_sunset = sunrise_sunset.transform_calculate(
+                y="datum.sunrise_sunset_type == 'Sunrise' ? 0 : 400"
+            )
 
             hover = alt.selection_point(
                 fields=["created_at"],
@@ -270,15 +407,17 @@ for tab, date_range in zip(tabs, date_ranges):
             )
 
             # Layer all elements
+            layers = []
+            if display_temperature:
+                layers.append(temperature_line)
+            if display_humidity:
+                layers.append(humidity_line)
+            if display_temperature or display_humidity:
+                layers.append(tooltips)
+            if display_sunrise_sunset:
+                layers.append(sunrise_sunset)
             chart = (
-                alt.layer(
-                    temperature_line,
-                    humidity_line,
-                    # hover_line,
-                    # temperature_points,
-                    # humidity_points,
-                    tooltips,
-                )
+                alt.layer(*layers)
                 .resolve_scale(y="independent")
                 .properties(width=600, height=400, title="")
             )
@@ -289,7 +428,10 @@ for tab, date_range in zip(tabs, date_ranges):
             st.subheader("Statistics", divider=True)
             general_cols = st.columns(3)
             general_cols[0].metric("Measurements", num_measurements)
-            general_cols[1].metric("Latest Measurements (UTC)", df["created_at"].max().strftime("%H:%M %d/%m"))
+            general_cols[1].metric(
+                "Latest Measurements (UTC)",
+                df["created_at"].max().strftime("%H:%M %d/%m"),
+            )
 
             temp_cols = st.columns(3)
             temp_cols[0].metric(
@@ -298,10 +440,17 @@ for tab, date_range in zip(tabs, date_ranges):
             temp_cols[1].metric("Maximum Temperature", f"{df['temperature'].max()} °C")
             temp_cols[2].metric("Minimum Temperature", f"{df['temperature'].min()} °C")
             humi_cols = st.columns(3)
-            humi_cols[0].metric("Average Humidity (%)", f"{df['humidity'].mean():.1f} %")
+            humi_cols[0].metric(
+                "Average Humidity (%)", f"{df['humidity'].mean():.1f} %"
+            )
             humi_cols[1].metric("Maximum Humidity (%)", f"{df['humidity'].max()} %")
             humi_cols[2].metric("Minimum Humidity (%)", f"{df['humidity'].min()} %")
 
+            with st.expander("Raw Data", expanded=False):
+                st.header("Measurements")
+                st.write(df)
+                st.header("Sunrise & Sunset")
+                st.write(df_sunrise_sunset)
 if auto_refresh:
     # refresh every 60 seconds
     st_autorefresh(interval=refresh_interval * 1000, key="autorefresh")
