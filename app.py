@@ -143,21 +143,21 @@ for tab, date_range in zip(tabs, date_ranges):
                 temp_too_high = latest_temperature > temp_slider[1]
                 if (
                     temp_too_low or temp_too_high
-                ) and not st.session_state.temp_alert_send:
+                ) and not st.session_state.get("temp_alert_send", False):
                     send_push(
                         title=f"{'Low' if temp_too_low else 'High'} Temperature Alert",
                         body=f"⚠️ Current Temperature is {latest_temperature} °C",
                         sound_path=(sound_path if enable_sound else None),
                     )
-                    st.session_state.temp_alert_send = True
+                    st.session_state["temp_alert_send"] = True
                 else:
-                    st.session_state.temp_alert_send = False
+                    st.session_state["temp_alert_send"] = False
 
                 humi_too_low = latest_humidity < humid_slider[0]
                 humi_too_high = latest_humidity > humid_slider[1]
                 if (
                     humi_too_low or humi_too_high
-                ) and not st.session_state.humid_alert_send:
+                ) and not st.session_state.get("humid_alert_send", False):
                     # send_alert(
                     #     message=f"⚠️ Humidity is {latest_humidity} %",
                     # )
@@ -166,9 +166,9 @@ for tab, date_range in zip(tabs, date_ranges):
                         body=f"⚠️ Humidity is {latest_humidity} %",
                         sound_path=(sound_path if enable_sound else None),
                     )
-                    st.session_state.humid_alert_send = True
+                    st.session_state["humid_alert_send"] = True
                 else:
-                    st.session_state.humid_alert_send = False
+                    st.session_state["humid_alert_send"] = False
 
             metric_cols = st.columns(2)
             mean_temp = df["temperature"].mean()
