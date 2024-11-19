@@ -223,8 +223,8 @@ for tab, date_range in zip(tabs, date_ranges):
             # resample data to 1 minute intervals and use the latest value
             df = df.resample("1T", on="created_at").last().reset_index()
 
-            latest_temperature = df["temperature"].iloc[0]
-            latest_humidity = df["humidity"].iloc[0]
+            latest_temperature = df["temperature"].iloc[-1]
+            latest_humidity = df["humidity"].iloc[-1]
 
             if notifications_toggle:
                 temp_too_low = latest_temperature < temp_slider[0]
