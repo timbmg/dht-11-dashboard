@@ -429,6 +429,10 @@ for tab, date_range in zip(tabs, date_ranges):
             general_cols = st.columns(3)
             general_cols[0].metric("Measurements", num_measurements)
             general_cols[1].metric(
+                "First Measurements (UTC)",
+                df["created_at"].min().strftime("%H:%M %d/%m"),
+            )
+            general_cols[1].metric(
                 "Latest Measurements (UTC)",
                 df["created_at"].max().strftime("%H:%M %d/%m"),
             )
