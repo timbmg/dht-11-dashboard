@@ -51,6 +51,16 @@ def fetch_data(from_date, to_date):
         ttl="1m",
     ).data
 
+def get_last_timestamp():
+    return execute_query(
+        st_supabase_client.table("dht11")
+        .select("created_at")
+        .eq("location", "bedroom")
+        .order("created_at", desc=True)
+        .limit(1),
+        ttl="1m",
+    ).data[0]["created_at"]
+
 
 @st.cache_data
 def get_sunrise_sunset_data(
@@ -161,29 +171,25 @@ for tab, date_range in zip(tabs, date_ranges):
 
     with tab:
         data = None
+        to_date = get_last_timestamp()
+        to_date = pd.Timestamp(to_date)
         if date_range == "1h":
-            to_date = pd.Timestamp.utcnow()
             from_date = to_date - pd.Timedelta(hours=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "6h":
-            to_date = pd.Timestamp.utcnow()
             from_date = to_date - pd.Timedelta(hours=6, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "24h":
-            to_date = pd.Timestamp.utcnow()
             from_date = to_date - pd.Timedelta(hours=24, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "7d":
-            to_date = pd.Timestamp.utcnow()
             from_date = to_date - pd.Timedelta(days=7, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "30d":
-            to_date = pd.Timestamp.utcnow()
             from_date = to_date - pd.Timedelta(days=30, minutes=1)
             data = fetch_data(from_date, to_date)
         elif date_range == "Max":
             from_date = pd.Timestamp(start_of_recording_date)
-            to_date = pd.Timestamp.utcnow()
             data = fetch_data(from_date, to_date)
         elif date_range == "Custom":
             date_from, hour_from = st.columns(2)
