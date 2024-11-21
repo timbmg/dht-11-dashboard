@@ -221,7 +221,7 @@ for tab, date_range in zip(tabs, date_ranges):
             df["created_at"] = pd.to_datetime(df["created_at"])
 
             # resample data to 1 minute intervals and use the latest value
-            df = df.resample("1T", on="created_at").last().reset_index()
+            df = df.resample("1min", on="created_at").last().reset_index()
 
             latest_temperature = df["temperature"].iloc[-1]
             latest_humidity = df["humidity"].iloc[-1]
