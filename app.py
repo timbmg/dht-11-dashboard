@@ -272,7 +272,7 @@ for tab, date_range in zip(tabs, date_ranges):
             delta_color = "off"
             delta_temp = round(delta_temp, 1)
             metric_cols[0].metric(
-                "Temperature",
+                "Live Temperature",
                 f"{latest_temperature} °C",
                 f"{delta_temp} °C",
                 delta_color,
@@ -284,7 +284,7 @@ for tab, date_range in zip(tabs, date_ranges):
             delta_color = "inverse"
             delta_humidity = round(delta_humidity, 1)
             metric_cols[1].metric(
-                "Humidity",
+                "Live Humidity",
                 f"{latest_humidity} %",
                 f"{delta_humidity} %",
                 delta_color,
