@@ -116,6 +116,7 @@ def get_sunrise_sunset_data(
 st.title("🌡️ Temperature & Humidity")
 
 with st.expander("Settings", expanded=False):
+    st.subheader("Data Settings")
     # toggle for auto refresh
     auto_refresh = st.checkbox(
         "Auto Refresh",
@@ -148,6 +149,7 @@ with st.expander("Settings", expanded=False):
             value=(default_min_humid_threshold, default_max_humid_threshold),
         )
 
+    st.subheader("Display Settings")
     display_columns = st.columns(2)
 
     display_temperature = display_columns[0].checkbox(
@@ -161,13 +163,13 @@ with st.expander("Settings", expanded=False):
         value=default_display_humidty,
         help="Display humidity measurements.",
     )
-    display_temperature_mean = display_columns[0].checkbox(
+    display_temperature_mean = display_columns[1].checkbox(
         "Display Rolling Temperature",
         value=default_display_temp_mean,
         help="Display temperature measurements.",
     )
 
-    display_humidity_mean = display_columns[0].checkbox(
+    display_humidity_mean = display_columns[1].checkbox(
         "Display Rolling Humidity",
         value=default_display_humidty_mean,
         help="Display humidity measurements.",
