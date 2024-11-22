@@ -145,19 +145,21 @@ with st.expander("Settings", expanded=False):
             value=(default_min_humid_threshold, default_max_humid_threshold),
         )
 
-    display_temperature = st.checkbox(
+    display_columns = st.columns(2)
+
+    display_temperature = display_columns[0].checkbox(
         "Display Temperature",
         value=default_display_temp,
         help="Display temperature measurements.",
     )
 
-    display_humidity = st.checkbox(
+    display_humidity = display_columns[0].checkbox(
         "Display Humidity",
         value=default_display_humidty,
         help="Display humidity measurements.",
     )
 
-    display_sunrise_sunset = st.checkbox(
+    display_sunrise_sunset = display_columns[0].checkbox(
         "Display Sunrise & Sunset",
         value=default_display_sunrise_sunset,
         help="Display vertical lines for sunrise and sunset times.",
