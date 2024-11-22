@@ -29,6 +29,8 @@ default_enable_notifications = False
 default_enable_notification_sound = False
 default_display_temp = True
 default_display_humidty = True
+default_display_temp_mean = True
+default_display_humidty_mean = True
 default_display_sunrise_sunset = False
 default_min_temp_threshold = 15
 default_max_temp_threshold = 25
@@ -50,6 +52,7 @@ def fetch_data(from_date, to_date):
         .lte("created_at", to_date),
         ttl="1m",
     ).data
+
 
 def get_last_timestamp():
     return execute_query(
@@ -158,6 +161,17 @@ with st.expander("Settings", expanded=False):
         value=default_display_humidty,
         help="Display humidity measurements.",
     )
+    display_temperature_mean = display_columns[0].checkbox(
+        "Display Rolling Temperature",
+        value=default_display_temp_mean,
+        help="Display temperature measurements.",
+    )
+
+    display_humidity_mean = display_columns[0].checkbox(
+        "Display Rolling Humidity",
+        value=default_display_humidty_mean,
+        help="Display humidity measurements.",
+    )
 
     display_sunrise_sunset = display_columns[0].checkbox(
         "Display Sunrise & Sunset",
@@ -176,23 +190,45 @@ for tab, date_range in zip(tabs, date_ranges):
         to_date = get_last_timestamp()
         to_date = pd.Timestamp(to_date)
         if date_range == "1h":
-            from_date = to_date - pd.Timedelta(hours=1)
-            data = fetch_data(from_date, to_date)
+            hours = 1
+            from_date = to_date - pd.Timedelta(hours=hours)
+            from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
+            data = fetch_data(from_date_fetch, to_date)
+            rolling_average = 5  # 5 minutes
+            rolling_average_display = "5 mins"
         elif date_range == "6h":
-            from_date = to_date - pd.Timedelta(hours=6, minutes=1)
-            data = fetch_data(from_date, to_date)
+            hours = 6
+            from_date = to_date - pd.Timedelta(hours=hours)
+            from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
+            data = fetch_data(from_date_fetch, to_date)
+            rolling_average = 60
+            rolling_average_display = "1 hour"
         elif date_range == "24h":
-            from_date = to_date - pd.Timedelta(hours=24, minutes=1)
-            data = fetch_data(from_date, to_date)
+            hours = 24
+            from_date = to_date - pd.Timedelta(hours=hours)
+            from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
+            data = fetch_data(from_date_fetch, to_date)
+            rolling_average = 360  # 4 hours
+            rolling_average_display = "6 hours"
         elif date_range == "7d":
-            from_date = to_date - pd.Timedelta(days=7, minutes=1)
-            data = fetch_data(from_date, to_date)
+            hours = 24 * 7
+            from_date = to_date - pd.Timedelta(hours=hours)
+            from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
+            data = fetch_data(from_date_fetch, to_date)
+            rolling_average = 1440  # 1 day
+            rolling_average_display = "1 day"
         elif date_range == "30d":
-            from_date = to_date - pd.Timedelta(days=30, minutes=1)
-            data = fetch_data(from_date, to_date)
+            hours = 24 * 30
+            from_date = to_date - pd.Timedelta(hours=hours)
+            from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
+            data = fetch_data(from_date_fetch, to_date)
+            rolling_average = 10080  # 7 days
+            rolling_average_display = "7 days"
         elif date_range == "Max":
             from_date = pd.Timestamp(start_of_recording_date)
             data = fetch_data(from_date, to_date)
+            rolling_average = 10080  # 7 days
+            rolling_average_display = "7 days"
         elif date_range == "Custom":
             date_from, hour_from = st.columns(2)
             date_to, hour_to = st.columns(2)
@@ -220,6 +256,7 @@ for tab, date_range in zip(tabs, date_ranges):
             )
             if st.session_state.get("load_data"):
                 data = fetch_data(from_date, to_date)
+                rolling_average = None
         else:
             raise ValueError("Invalid date range")
 
@@ -230,6 +267,21 @@ for tab, date_range in zip(tabs, date_ranges):
 
             # resample data to 1 minute intervals and use the latest value
             df = df.resample("1min", on="created_at").last().reset_index()
+
+            # compute rolling mean for temperature and humidity
+            df["temperature_mean"] = (
+                df["temperature"]
+                .rolling(window=rolling_average, min_periods=rolling_average // 2)
+                .mean()
+            )
+            df["humidity_mean"] = (
+                df["humidity"]
+                .rolling(window=rolling_average, min_periods=rolling_average // 2)
+                .mean()
+            )
+            # now that the rolling mean is computed, drop the fetched data that is not
+            # needed anymore, ie drop everything that is older than from_date
+            df = df[df["created_at"] >= from_date]
 
             latest_temperature = df["temperature"].iloc[-1]
             latest_humidity = df["humidity"].iloc[-1]
@@ -353,28 +405,62 @@ for tab, date_range in zip(tabs, date_ranges):
             # Create a line for temperature
             min_temp_scale = df["temperature"].min() - 2
             max_temp_scale = df["temperature"].max() + 2
+            temperature_axis = alt.Axis(titleColor="red", title="Temperature (°C)")
+            temperature_scale = alt.Scale(domain=[min_temp_scale, max_temp_scale])
             temperature_line = base.mark_line(
                 color="red", interpolate="monotone"
             ).encode(
                 y=alt.Y(
                     "temperature:Q",
-                    title="Temperature (°C)",
-                    axis=alt.Axis(titleColor="red"),
-                    scale=alt.Scale(domain=[min_temp_scale, max_temp_scale]),
+                    axis=temperature_axis,
+                    scale=temperature_scale,
                 )
             )
+
+            rolling_average_temperature_line = base.mark_line(
+                color="salmon", interpolate="monotone"
+            ).encode(
+                y=alt.Y(
+                    "temperature_mean:Q",
+                    axis=temperature_axis,
+                    scale=temperature_scale,
+                )
+            )
+            if display_temperature and not display_temperature_mean:
+                temperature_line = temperature_line
+            elif display_temperature and display_temperature_mean:
+                temperature_line = temperature_line + rolling_average_temperature_line
+            elif not display_temperature and display_temperature_mean:
+                temperature_line = rolling_average_temperature_line
 
             # Create a line for humidity with a secondary y-axis
             min_humidity_scale = df["humidity"].min() - 5
             max_humidity_scale = df["humidity"].max() + 5
+            humidity_axis = alt.Axis(titleColor="blue", title="Humidity (%)")
+            humidity_scale = alt.Scale(domain=[min_humidity_scale, max_humidity_scale])
             humidity_line = base.mark_line(color="blue", interpolate="monotone").encode(
                 y=alt.Y(
                     "humidity:Q",
-                    title="Humidity (%)",
-                    axis=alt.Axis(titleColor="blue"),
-                    scale=alt.Scale(domain=[min_humidity_scale, max_humidity_scale]),
+                    axis=humidity_axis,
+                    scale=humidity_scale,
                 ),
             )
+
+            rolling_average_humidity_line = base.mark_line(
+                color="lightblue", interpolate="monotone"
+            ).encode(
+                y=alt.Y(
+                    "humidity_mean:Q",
+                    axis=humidity_axis,
+                    scale=humidity_scale,
+                ),
+            )
+            if display_humidity and not display_humidity_mean:
+                humidity_line = humidity_line
+            elif display_humidity and display_humidity_mean:
+                humidity_line = humidity_line + rolling_average_humidity_line
+            elif not display_humidity and display_humidity_mean:
+                humidity_line = rolling_average_humidity_line
 
             # hover_line = (
             #     base.mark_rule(color="gray", strokeDash=[5, 5])
@@ -408,7 +494,15 @@ for tab, date_range in zip(tabs, date_ranges):
                             "created_at:T", title="Time", format="%Y-%m-%d %H:%M"
                         ),
                         alt.Tooltip("temperature:Q", title="Temperature (°C)"),
+                        alt.Tooltip(
+                            "temperature_mean:Q",
+                            title=f"Rolling {rolling_average_display} Temperature (°C)",
+                        ),
                         alt.Tooltip("humidity:Q", title="Humidity (%)"),
+                        alt.Tooltip(
+                            "humidity_mean:Q",
+                            title=f"Rolling  {rolling_average_display} Humidity (%)",
+                        ),
                     ],
                 )
                 .add_params(hover)
@@ -416,9 +510,9 @@ for tab, date_range in zip(tabs, date_ranges):
 
             # Layer all elements
             layers = []
-            if display_temperature:
+            if display_temperature or display_temperature_mean:
                 layers.append(temperature_line)
-            if display_humidity:
+            if display_humidity or display_humidity_mean:
                 layers.append(humidity_line)
             if display_temperature or display_humidity:
                 layers.append(tooltips)
