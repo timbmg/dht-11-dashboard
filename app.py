@@ -265,7 +265,7 @@ for tab, date_range in zip(tabs, date_ranges):
         if data is not None:
 
             df = pd.DataFrame(data)
-            df["created_at"] = pd.to_datetime(df["created_at"])
+            df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
 
             # resample data to 1 minute intervals and use the latest value
             df = df.resample("1min", on="created_at").last().reset_index()
@@ -283,7 +283,13 @@ for tab, date_range in zip(tabs, date_ranges):
             )
             # now that the rolling mean is computed, drop the fetched data that is not
             # needed anymore, ie drop everything that is older than from_date
-            df = df[df["created_at"] >= from_date]
+            
+            # coonvert from_date and created_at to tz-naive for comparison
+            from_date = from_date.tz_localize(None)
+            df["created_at"] = df["created_at"].dt.tz_localize(None)
+            df = df[df["created_at"] >= from_date].reset_index(drop=True)
+            # make created_at tz-aware again
+            df["created_at"] = df["created_at"].dt.tz_localize("UTC")
 
             latest_temperature = df["temperature"].iloc[-1]
             latest_humidity = df["humidity"].iloc[-1]
