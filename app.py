@@ -44,9 +44,9 @@ start_of_recording_date = "2024-11-12"
 def fetch_data(from_date, to_date):
 
     return execute_query(
-        st_supabase_client.table("dht11")
+        st_supabase_client.table("measurements")
         .select("*")
-        .eq("location", "bedroom")
+        .eq("location", "bedroom/window")
         .order("created_at", desc=True)
         .gte("created_at", from_date)
         .lte("created_at", to_date),
@@ -56,9 +56,9 @@ def fetch_data(from_date, to_date):
 
 def get_last_timestamp():
     return execute_query(
-        st_supabase_client.table("dht11")
+        st_supabase_client.table("measurements")
         .select("created_at")
-        .eq("location", "bedroom")
+        .eq("location", "bedroom/window")
         .order("created_at", desc=True)
         .limit(1),
         ttl="1m",
