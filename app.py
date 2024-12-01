@@ -41,12 +41,12 @@ refresh_interval = 60
 start_of_recording_date = "2024-11-12"
 
 
-def fetch_data(from_date, to_date):
+def fetch_data(from_date, to_date, location: str):
 
     return execute_query(
         st_supabase_client.table("measurements")
         .select("*")
-        .eq("location", "bedroom/window")
+        .eq("location", location)
         .order("created_at", desc=True)
         .gte("created_at", from_date)
         .lte("created_at", to_date),
@@ -54,11 +54,11 @@ def fetch_data(from_date, to_date):
     ).data
 
 
-def get_last_timestamp():
+def get_last_timestamp(location: str):
     return execute_query(
         st_supabase_client.table("measurements")
         .select("created_at")
-        .eq("location", "bedroom/window")
+        .eq("location", location)
         .order("created_at", desc=True)
         .limit(1),
         ttl="1m",
@@ -181,54 +181,65 @@ with st.expander("Settings", expanded=False):
         help="Display vertical lines for sunrise and sunset times.",
     )
 
+# get all locations in the database from the measurements table
+locations = execute_query(
+    st_supabase_client.table("locations").select("location"),
+    ttl="1m",
+).data
+# convert to list and remove 'test' location
+locations = [l["location"] for l in locations if l["location"] != "test"]
+# dropdown for selecting location
+location = st.selectbox("Location", locations)
 
 date_ranges = ["1h", "6h", "24h", "7d", "30d", "Max", "Custom"]
 tabs = st.tabs(date_ranges)
+
+
 
 for tab, date_range in zip(tabs, date_ranges):
 
     with tab:
         data = None
-        to_date = get_last_timestamp()
+        to_date = get_last_timestamp(location=location)
         to_date = pd.Timestamp(to_date)
         if date_range == "1h":
             hours = 1
             from_date = to_date - pd.Timedelta(hours=hours)
             from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
-            data = fetch_data(from_date_fetch, to_date)
+            data = fetch_data(from_date_fetch, to_date, location)
             rolling_average = 5  # 5 minutes
             rolling_average_display = "5 mins"
         elif date_range == "6h":
             hours = 6
             from_date = to_date - pd.Timedelta(hours=hours)
             from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
-            data = fetch_data(from_date_fetch, to_date)
+            data = fetch_data(from_date_fetch, to_date, location)
             rolling_average = 60
             rolling_average_display = "1 hour"
         elif date_range == "24h":
             hours = 24
             from_date = to_date - pd.Timedelta(hours=hours)
             from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
-            data = fetch_data(from_date_fetch, to_date)
+            data = fetch_data(from_date_fetch, to_date, location)
             rolling_average = 360  # 4 hours
             rolling_average_display = "6 hours"
         elif date_range == "7d":
             hours = 24 * 7
             from_date = to_date - pd.Timedelta(hours=hours)
             from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
-            data = fetch_data(from_date_fetch, to_date)
+            data = fetch_data(from_date_fetch, to_date, location)
             rolling_average = 1440  # 1 day
             rolling_average_display = "1 day"
         elif date_range == "30d":
             hours = 24 * 30
             from_date = to_date - pd.Timedelta(hours=hours)
             from_date_fetch = to_date - pd.Timedelta(hours=hours * 2)
-            data = fetch_data(from_date_fetch, to_date)
+            data = fetch_data(from_date_fetch, to_date, location)
             rolling_average = 10080  # 7 days
             rolling_average_display = "7 days"
         elif date_range == "Max":
             from_date = pd.Timestamp(start_of_recording_date)
-            data = fetch_data(from_date, to_date)
+            data = fetch_data(from_date, to_date, location)
             rolling_average = 10080  # 7 days
             rolling_average_display = "7 days"
         elif date_range == "Custom":
@@ -257,7 +268,7 @@ for tab, date_range in zip(tabs, date_ranges):
                 disabled=not enabled,
             )
             if st.session_state.get("load_data"):
-                data = fetch_data(from_date, to_date)
+                data = fetch_data(from_date, to_date, location)
                 rolling_average = None
         else:
             raise ValueError("Invalid date range")
@@ -333,8 +344,8 @@ for tab, date_range in zip(tabs, date_ranges):
             delta_temp = round(delta_temp, 1)
             metric_cols[0].metric(
                 "Live Temperature",
-                f"{latest_temperature} °C",
-                f"{delta_temp} °C",
+                f"{latest_temperature:.1f} °C",
+                f"{delta_temp:.1f} °C",
                 delta_color,
                 help=f"Temperature in Celsius compared to the average temperature in the last {date_range}.",
             )
@@ -345,8 +356,8 @@ for tab, date_range in zip(tabs, date_ranges):
             delta_humidity = round(delta_humidity, 1)
             metric_cols[1].metric(
                 "Live Humidity",
-                f"{latest_humidity} %",
-                f"{delta_humidity} %",
+                f"{latest_humidity:.1f} %",
+                f"{delta_humidity:.1f} %",
                 delta_color,
                 help=f"Humidity compared to the average humidity in the last {date_range}.",
             )
@@ -551,14 +562,14 @@ for tab, date_range in zip(tabs, date_ranges):
             temp_cols[0].metric(
                 "Average Temperature", f"{df['temperature'].mean():.1f}°C"
             )
-            temp_cols[1].metric("Maximum Temperature", f"{df['temperature'].max()} °C")
-            temp_cols[2].metric("Minimum Temperature", f"{df['temperature'].min()} °C")
+            temp_cols[1].metric("Maximum Temperature", f"{df['temperature'].max():.1f} °C")
+            temp_cols[2].metric("Minimum Temperature", f"{df['temperature'].min():.1f} °C")
             humi_cols = st.columns(3)
             humi_cols[0].metric(
                 "Average Humidity (%)", f"{df['humidity'].mean():.1f} %"
             )
-            humi_cols[1].metric("Maximum Humidity (%)", f"{df['humidity'].max()} %")
-            humi_cols[2].metric("Minimum Humidity (%)", f"{df['humidity'].min()} %")
+            humi_cols[1].metric("Maximum Humidity (%)", f"{df['humidity'].max():.1f} %")
+            humi_cols[2].metric("Minimum Humidity (%)", f"{df['humidity'].min():.1f} %")
 
             with st.expander("Raw Data", expanded=False):
                 st.header("Measurements")
